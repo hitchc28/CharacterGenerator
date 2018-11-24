@@ -1,0 +1,150 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title></title>
+	<meta charset="utf-8" />
+	<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.9/angular.min.js"></script>
+</head>
+<body ng-app="characterApp" ng-controller="characterCtrl">
+
+    <!-- View -->
+    <!-- Debug Tools -->
+    <div>
+        <table>
+            <tr>
+                <td>
+                    <select ng-model="activeQuestion" ng-options="q as q.name for q in questions"></select>
+                </td>
+                <td>
+                    <select ng-model="activeChoice" ng-options="c as c.name for c in activeQuestion.choices"></select>
+                </td>
+                <td>
+                    <select ng-model="activeTrait" ng-options="t as t.name for t in traits"></select>
+                </td>
+                <td>
+                    <select ng-model="activeMenu" ng-change="changeMenu(activeMenu)">
+                        <option value="0">Main Menu</option>
+                        <option value="1">Edit Question</option>
+                        <option value="2">Edit Choice</option>
+                        <option value="3">Edit Trait</option>
+                        <option value="4">Show Questions</option>
+                        <option value="5">Show Traits</option>
+                        <option value="6">Playing</option>
+                        <option value="7">Show Character</option>
+                    </select>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <div ng-show="menuIndex == 0">
+        <h2>Character Creator</h2>
+        <button ng-click="play()">Play!</button>
+    </div>
+
+    <div ng-show="menuIndex == 1">
+        <h2>Edit Question: <input ng-model="activeQuestion.name"></h2>
+        <!-- Choices -->
+        <table>
+            <tr>Choices</tr>
+            <tr ng-repeat="x in activeQuestion.choices">
+                <td ng-if="x.name == ''"><button ng-click="setActiveChoice(x); changeMenu(2)">(New)</button></td>
+                <td ng-if="x.name != ''"><button ng-click="setActiveChoice(x); changeMenu(2)">{{ x.name }}</button></td>
+
+                <td><button ng-click="activeQuestion.removeChoice(x)">x</button></td>
+            </tr>
+        </table>
+        <button ng-click="activeQuestion.newChoice()">Add</button>
+    </div>
+
+    <div ng-show="menuIndex == 2">
+        <h2>Edit Choice: <input ng-model="activeChoice.name"></h2>
+        <!-- Add Attributes -->
+        <table>
+            <tr>Add Attributes</tr>
+            <tr ng-repeat="x in activeChoice.addAttributes">
+                <td>{{x.trait.name}}: {{ x.name }}</td>
+
+                <td><button ng-click="activeChoice.removeAddAttribute(x)">x</button></td>
+            </tr>
+        </table>
+        <!-- Only add attributes that already exist -->
+        <form ng-submit="activeChoice.addAddAttribute(att)">
+            <select ng-model="tr" ng-options="tr as tr.name for tr in traits"></select>
+            <select ng-model="att" ng-options="att as att.name for att in tr.attributes"></select>
+            <input type="submit" value="Add" />
+        </form>
+    </div>
+
+    <div ng-show="menuIndex == 3">
+        <h2>Edit Trait: <input ng-model="activeTrait.name"></h2>
+        <!-- Attributes -->
+        <table>
+            <tr>Attributes</tr>
+            <tr ng-repeat="x in activeTrait.attributes">
+                <td><input ng-model="x.name"></td>
+
+                <td><button ng-click="activeTrait.removeAttribute(x)">x</button></td>
+            </tr>
+        </table>
+        <button ng-click="activeTrait.newAttribute()">Add</button>
+    </div>
+
+
+    <div ng-show="menuIndex == 4">
+        <h2>Questions</h2>
+        <table>
+            <tr>
+                <td>Question</td>
+                <td>Choices</td>
+            </tr>
+            <tr ng-repeat="x in questions">
+                <td ng-if="x.name == ''"><button ng-click="setActiveQuestion(x); changeMenu(1)">(New)</button></td>
+                <td ng-if="x.name != ''"><button ng-click="setActiveQuestion(x); changeMenu(1)">{{ x.name }}</button></td>
+
+                <td>{{ x.choices.length }}</td>
+
+                <td><button ng-click="removeQuestion(x)">x</button></td>
+            </tr>
+        </table>
+        <button ng-click="newQuestion()">Add</button>
+    </div>
+
+    <div ng-show="menuIndex == 5">
+        <h2>Traits</h2>
+        <table>
+            <tr>
+                <td>Traits</td>
+                <td>Attributes</td>
+            </tr>
+            <tr ng-repeat="x in traits">
+                <td ng-if="x.name == ''"><button ng-click="setActiveTrait(x); changeMenu(3)">(New)</button></td>
+                <td ng-if="x.name != ''"><button ng-click="setActiveTrait(x); changeMenu(3)">{{ x.name }}</button></td>
+
+                <td>{{ x.attributes.length }}</td>
+
+                <td><button ng-click="removeTrait(x)">x</button></td>
+            </tr>
+        </table>
+        <button ng-click="newTrait()">Add</button>
+    </div>
+
+    <div ng-show="menuIndex == 7">
+        <h2>Character</h2>
+        <table>
+            <tr>
+                <td><span style="font-weight:bold">Trait </span></td>
+                <td>Attributes</td>
+            </tr>
+            <tr ng-repeat="(trait, array) in activeCharacter.attributes">
+                <td><span style="font-weight:bold">{{ trait }} </span></td>
+                <td ng-repeat="att in array">{{att.name}}{{$last ? '' : ', '}}</td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- Import controller -->
+    <script src="characterController.js"></script>
+
+</body>
+</html>
