@@ -4,6 +4,7 @@
     <title></title>
 	<meta charset="utf-8" />
 	<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.9/angular.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ngstorage@0.3.11/ngStorage.min.js"></script>
 </head>
 <body ng-app="characterApp" ng-controller="characterCtrl">
 
@@ -142,6 +143,9 @@
             </tr>
         </table>
     </div>
+
+    <input type="button" value="Save" ng-click="Save()" />
+    <input type="button" value="Get" ng-click="Get()" />
 
     <!-- Import controller -->
     <script src="characterController.js"></script>

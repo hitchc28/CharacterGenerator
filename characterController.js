@@ -1,5 +1,8 @@
 ﻿// Module, Controller
-var app = angular.module('characterApp', []);
+var app = angular.module('characterApp', ["ngStorage"]);
+
+// Global variable: Unique int identifier for each custom object
+var count = 0;
 
 // Objects
 // Question
@@ -7,6 +10,8 @@ app.factory('Question', function (Choice) {
 
     // Constructors
     function Question() {
+        this.id = count++;
+        this.type = "Question";
         this.name = '';
         this.choices = [];
     }
@@ -51,6 +56,8 @@ app.factory('Choice', function (Trait) {
 
     // Constructors
     function Choice() {
+        this.id = count++;
+        this.type = "Choice";
         this.name = '';
         this.addAttributes = [];
     }
@@ -80,6 +87,8 @@ app.factory('Attribute', function () {
 
     // Constructors
     function Attribute(owner) {
+        this.id = count++;
+        this.type = "Attribute";
         this.name = '';
         this.trait = owner;
     }
@@ -101,6 +110,8 @@ app.factory('Trait', function (Attribute) {
 
     // Constructors
     function Trait() {
+        this.id = count++;
+        this.type = "Trait";
         this.name = '';
         this.attributes = [];
     }
@@ -135,6 +146,8 @@ app.factory('Character', function (Question, Choice) {
 
     // Constructors
     function Character() {
+        this.id = count++;
+        this.type = "Character";
         this.attributes = {};
     }
 
@@ -169,6 +182,8 @@ app.factory('Game', function (Character, Question, Choice) {
 
     // Constructors
     function Game() {
+        this.id = count++;
+        this.type = "Game";
     };
 
     // Public methods
@@ -191,7 +206,7 @@ app.factory('Game', function (Character, Question, Choice) {
     return Game;
 });
 
-app.controller('characterCtrl', function ($scope, $filter, Question, Trait, Character, Game, Attribute) {
+app.controller('characterCtrl', function ($scope, $filter, Question, Trait, Choice, Attribute, Character, Game, $window, $localStorage) {
 
     // Questions
     $scope.questions = [];
@@ -248,6 +263,165 @@ app.controller('characterCtrl', function ($scope, $filter, Question, Trait, Char
     $scope.setActiveTrait = function (t) {
         $scope.activeTrait = t;
     }
+
+    // Session information
+    // Purpose: Save all game objects (Questions, Traits, Choices, Attributes) to local session.
+    $scope.Save = function () {
+
+        // Build list of objects to save
+        var toSave = $scope.BuildToSave();
+
+        // For each object to save
+        angular.forEach(toSave, function (obj, objKey) {
+            // Make copy
+            var copy = angular.copy(obj);
+            // Process each key, value and replace objects with ID references
+            angular.forEach(copy, function (value, key) {
+                // If object, replace references
+                if ($scope.IsObject(value)) {
+                    copy[key] = "ID Ref: " + value.id;
+                }
+                // If array, test each element
+                if (angular.isArray(value)) {
+                    angular.forEach(value, function (arrayValue, arrayKey) {
+                        if ($scope.IsObject(arrayValue)) {
+                            value[arrayKey] = "ID Ref: " + arrayValue.id;
+                        }
+                    });
+                }
+            });
+            // Store altered object as object to save
+            toSave[objKey] = copy;
+        });
+
+        // Save to local storage
+        //var test = angular.toJson(toSave);
+        //$window.alert(angular.toJson(toSave));
+        $localStorage.Build = angular.toJson(toSave);
+    }
+    // Purpose: Build array of objects to be saved
+    // Returns: Array of objects
+    $scope.BuildToSave = function(){
+        var toSave = [];
+
+        // Add each question
+        $scope.questions.forEach(function (q) {
+            toSave.push(q);
+
+            // Add each choice
+            q.choices.forEach(function (ch) {
+                toSave.push(ch);
+            });
+        });
+        // Add each trait
+        $scope.traits.forEach(function (tr) {
+            toSave.push(tr);
+
+            // Add each attribute
+            tr.attributes.forEach(function (att) {
+                toSave.push(att);
+            });
+        });
+
+        return toSave;
+    }
+    // Purpose: Test if an object is a custom type
+    // Returns: (bool) True if custom object
+    $scope.IsObject = function (obj) {
+        if (!(obj.hasOwnProperty('id'))) return false;
+        if (!(obj.hasOwnProperty('type'))) return false;
+        return true;
+    }
+
+    // Purpose: Retrieve game objects from local session.
+    $scope.Get = function () {
+        // Working test
+        //$window.alert($localStorage.Build);
+
+        // Reset count
+        count = 0;
+
+        // Get data from local storage
+        var data = angular.fromJson($localStorage.Build);
+        var sortedObjects = []; // All objects, using id number as index
+
+        // For each object in data, build object using factory
+        angular.forEach(data, function (objValue, objKey) {
+            // Create object of type, merge with data object
+            var obj = $scope.BuildLoadObject(objValue);
+            objValue = angular.merge(obj, objValue);
+
+            // Save based on id index
+            sortedObjects[objValue.id] = objValue;
+
+            // Update count
+            count++;
+        });
+        // For each object, restore references
+        angular.forEach(sortedObjects, function (sortObj, sortKey) {
+            // Loop over each key
+            angular.forEach(sortObj, function (value, key) {
+                // If array, loop
+                angular.forEach(value, function (stringValue, stringKey) {
+                    if (typeof stringValue === 'string' || stringValue instanceof String) {
+                        if (stringValue.indexOf("ID Ref: ") != -1) {
+                            var id = stringValue.replace("ID Ref: ", "");
+                            sortObj[key][stringKey] = sortedObjects[id];
+                        }
+                    }
+                });
+                // If object, look up object by id, restore reference
+                if (typeof value === 'string' || value instanceof String) {
+                    if (value.indexOf("ID Ref: ") != -1) {
+                        var id = value.replace("ID Ref: ", "");
+                        sortObj[key] = sortedObjects[id];
+                    }
+                }
+            });
+        });
+
+        // Save results in controller
+        $scope.AssignLoadedObjects(sortedObjects);
+    }
+    // Purpose: Return blank object of certain type based on obj
+    // Returns: Default factory object of obj.type type
+    $scope.BuildLoadObject = function (obj) {
+        switch(obj.type) {
+            case "Question":
+                return new Question();
+                break;
+            case "Trait":
+                return new Trait();
+                break;
+            case "Choice":
+                return new Choice();
+                break;
+            case "Attribute":
+                return new Attribute();
+                break;
+            default:
+                return {};
+        }
+    }
+    // Purpose: Take loaded objects and use for project-specific purpose
+    // Specific: Save loaded questions and traits in scope
+    $scope.AssignLoadedObjects = function (loadedArray) {
+        // Reset data
+        $scope.questions = [];
+        $scope.traits = [];
+
+        // Loop through data, save specific types separately
+        angular.forEach(loadedArray, function (obj, key) {
+            if (obj.type == "Question") {
+                $scope.addQuestion(obj);
+            }
+            else if (obj.type == "Trait") {
+                $scope.addTrait(obj);
+            }
+        });
+    }
+
+    $scope.testObj = {name:"Hello", data:"World"};
 
     // Only show one menu at a time
     $scope.menuIndex = 0;
