@@ -5,12 +5,13 @@
 	<meta charset="utf-8" />
 	<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.9/angular.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/ngstorage@0.3.11/ngStorage.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body ng-app="characterApp" ng-controller="characterCtrl">
 
     <!-- View -->
     <!-- Debug Tools -->
-    <div>
+    <!--<div>
         <table>
             <tr>
                 <td>
@@ -36,33 +37,61 @@
                 </td>
             </tr>
         </table>
-    </div>
+    </div>-->
 
     <div ng-show="menuIndex == 0">
         <h2>Character Creator</h2>
-        <button ng-click="play()">Play!</button>
+        <table>
+            <tr>
+                <td colspan="3"><button ng-click="play()">Play!</button></td>
+            </tr>
+            <tr>
+                <td><button ng-click="changeMenu(4)">Questions</button></td>
+                <td></td>
+                <td><button ng-click="changeMenu(5)">Traits</button></td>
+            </tr>
+            <tr>
+                <td><button ng-click="Save()">Save</button></td>
+                <td></td>
+                <td><button ng-click="Get()">Load</button></td>
+            </tr>
+            <tr>
+                <td><button ng-click="options.changeChoiceMode(0)">Roll</button></td>
+                <td><button ng-click="options.changeChoiceMode(1)">Choose</button></td>
+                <td><button ng-click="options.changeChoiceMode(2)">Instant</button></td>
+            </tr>
+        </table>
     </div>
 
     <div ng-show="menuIndex == 1">
         <h2>Edit Question: <input ng-model="activeQuestion.name"></h2>
         <!-- Choices -->
         <table>
-            <tr>Choices</tr>
+            <tr>
+                <td colspan="2">Choices</td>
+            </tr>
             <tr ng-repeat="x in activeQuestion.choices">
                 <td ng-if="x.name == ''"><button ng-click="setActiveChoice(x); changeMenu(2)">(New)</button></td>
                 <td ng-if="x.name != ''"><button ng-click="setActiveChoice(x); changeMenu(2)">{{ x.name }}</button></td>
 
                 <td><button ng-click="activeQuestion.removeChoice(x)">x</button></td>
             </tr>
+            <tr>
+                <td><button ng-click="activeQuestion.newChoice()">Add</button></td>
+            </tr>
+            <tr>
+                <td><button ng-click="changeMenu(4)">Back</button></td>
+            </tr>
         </table>
-        <button ng-click="activeQuestion.newChoice()">Add</button>
     </div>
 
     <div ng-show="menuIndex == 2">
         <h2>Edit Choice: <input ng-model="activeChoice.name"></h2>
         <!-- Add Attributes -->
         <table>
-            <tr>Add Attributes</tr>
+            <tr>
+                <td colspan="2">Add Attributes</td>
+            </tr>
             <tr ng-repeat="x in activeChoice.addAttributes">
                 <td>{{x.trait.name}}: {{ x.name }}</td>
 
@@ -75,20 +104,30 @@
             <select ng-model="att" ng-options="att as att.name for att in tr.attributes"></select>
             <input type="submit" value="Add" />
         </form>
+        <button ng-click="changeMenu(1)">Back</button>
     </div>
 
     <div ng-show="menuIndex == 3">
         <h2>Edit Trait: <input ng-model="activeTrait.name"></h2>
         <!-- Attributes -->
         <table>
-            <tr>Attributes</tr>
+            <tr>
+                <td colspan="2">Attributes</td>
+            </tr>
             <tr ng-repeat="x in activeTrait.attributes">
                 <td><input ng-model="x.name"></td>
 
                 <td><button ng-click="activeTrait.removeAttribute(x)">x</button></td>
             </tr>
+            <tr>
+                <td>
+                    <button ng-click="activeTrait.newAttribute()">Add</button>
+                </td>
+            </tr>
+            <tr>
+                <td><button ng-click="changeMenu(5)">Back</button></td>
+            </tr>
         </table>
-        <button ng-click="activeTrait.newAttribute()">Add</button>
     </div>
 
 
@@ -98,6 +137,7 @@
             <tr>
                 <td>Question</td>
                 <td>Choices</td>
+                <td></td>
             </tr>
             <tr ng-repeat="x in questions">
                 <td ng-if="x.name == ''"><button ng-click="setActiveQuestion(x); changeMenu(1)">(New)</button></td>
@@ -107,8 +147,13 @@
 
                 <td><button ng-click="removeQuestion(x)">x</button></td>
             </tr>
+            <tr>
+                <td><button ng-click="newQuestion()">Add</button></td>
+            </tr>
+            <tr>
+                <td><button ng-click="changeMenu(0)">Back</button></td>
+            </tr>
         </table>
-        <button ng-click="newQuestion()">Add</button>
     </div>
 
     <div ng-show="menuIndex == 5">
@@ -117,6 +162,7 @@
             <tr>
                 <td>Traits</td>
                 <td>Attributes</td>
+                <td></td>
             </tr>
             <tr ng-repeat="x in traits">
                 <td ng-if="x.name == ''"><button ng-click="setActiveTrait(x); changeMenu(3)">(New)</button></td>
@@ -126,8 +172,41 @@
 
                 <td><button ng-click="removeTrait(x)">x</button></td>
             </tr>
+            <tr>
+                <td><button ng-click="newTrait()">Add</button></td>
+            </tr>
+            <tr>
+                <td><button ng-click="changeMenu(0)">Back</button></td>
+            </tr>
         </table>
-        <button ng-click="newTrait()">Add</button>
+    </div>
+
+    <div ng-show="menuIndex == 6">
+        <div ng-show="options.choiceMode == 0">
+            <h2>{{activeQuestion.name}}</h2>
+            <table>
+                <tr ng-repeat="x in activeQuestion.choices">
+                    <td ng-if="x.name != '' && x != rollChoice">{{ x.name }}</td>
+                    <td ng-if="x.name != '' && x == rollChoice && rolling" bgcolor="#FF0000">{{ x.name }}</td>
+                    <td ng-if="x.name != '' && x == rollChoice && !rolling" bgcolor="#00FF00">{{ x.name }}</td>
+                </tr>
+                <tr>
+                    <td><button ng-click="playQuestion()" ng-disabled="rolling">Next</button></td>
+                </tr>
+            </table>
+        </div>
+        <div ng-show="options.choiceMode == 1">
+            <table>
+                <tr>{{activeQuestion.name}}</tr>
+                <tr ng-repeat="x in activeQuestion.choices">
+                    <td ng-if="x.name != ''"><button ng-click="addActiveChoice(x); playQuestion()">{{ x.name }}</button></td>
+                </tr>
+            </table>
+        </div>
+        <div ng-show="options.choiceMode == 2">
+            <h2>Instant</h2>
+        </div>
+        <button ng-click="changeMenu(0)">Main Menu</button>
     </div>
 
     <div ng-show="menuIndex == 7">
@@ -141,11 +220,14 @@
                 <td><span style="font-weight:bold">{{ trait }} </span></td>
                 <td ng-repeat="att in array">{{att.name}}{{$last ? '' : ', '}}</td>
             </tr>
+            <tr>
+                <td><button ng-click="play()">Play Again?</button></td>
+            </tr>
+            <tr>
+                <td><button ng-click="changeMenu(0)">Main Menu</button></td>
+            </tr>
         </table>
     </div>
-
-    <input type="button" value="Save" ng-click="Save()" />
-    <input type="button" value="Get" ng-click="Get()" />
 
     <!-- Import controller -->
     <script src="characterController.js"></script>

@@ -156,7 +156,9 @@ app.factory('Character', function (Question, Choice) {
         if (!(att.trait.name in this.attributes)) {
             this.attributes[att.trait.name] = [];
         }
-        this.attributes[att.trait.name].push(att);
+        if (this.attributes[att.trait.name].indexOf(att) === -1) { // Don't allow duplicates
+            this.attributes[att.trait.name].push(att);
+        }
     }
     // Purpose: Apply terms of choice to character
     // Parameters: char - Character object being altered
@@ -190,7 +192,12 @@ app.factory('Game', function (Character, Question, Choice) {
     Game.prototype.play = function (char, questions) {
         // Get choice from each active question
         questions.forEach(function (question) {
-            var choice = question.decide(this);
+            var choice = question.decide();
+            char.makeChoice(choice);
+        });
+    };
+    Game.prototype.decide = function (char, choices) {
+        choices.forEach(function (choice) {
             char.makeChoice(choice);
         });
     };
@@ -205,8 +212,45 @@ app.factory('Game', function (Character, Question, Choice) {
 
     return Game;
 });
+// Options
+app.factory('Options', function (Character, Choice) {
 
-app.controller('characterCtrl', function ($scope, $filter, Question, Trait, Choice, Attribute, Character, Game, $window, $localStorage) {
+    // Constructors
+    function Options() {
+        this.id = count++;
+        this.type = "Options";
+        this.choiceMode = 0;
+    };
+
+    // Public methods
+    Options.prototype.changeChoiceMode = function (index) {
+        // 0: Roll
+        // 1: Choose
+        // 2: Instant
+        this.choiceMode = index;
+    };
+    Options.prototype.decide = function (char, choices) {
+        choices.forEach(function (choice) {
+            char.makeChoice(choice);
+        });
+    };
+
+    // Private properties
+
+    // Private methods
+
+    // Static properties
+
+    // Static methods
+
+    return Options;
+});
+
+app.controller('characterCtrl', function ($scope, $filter, Question, Trait, Choice, Attribute, Character, Game, Options, $window, $localStorage, $timeout)
+{
+
+    // Options
+    $scope.options = new Options();
 
     // Questions
     $scope.questions = [];
@@ -241,11 +285,69 @@ app.controller('characterCtrl', function ($scope, $filter, Question, Trait, Choi
     // Gameplay
     $scope.activeCharacter = {};
     $scope.activeGame = {};
+    $scope.activeQuestionIndex = 0;
+    $scope.rolling = false;
+    $scope.rollChoice = {};
+
+    $scope.activeChoices = [];
+    $scope.addActiveChoice = function (choice) {
+        $scope.activeChoices.push(choice);
+    };
+
     $scope.play = function () {
+        // Set up
+        $scope.changeMenu(6); // Playing
         $scope.activeCharacter = new Character();
         $scope.activeGame = new Game();
-        $scope.activeGame.play($scope.activeCharacter, $scope.questions);
-        $scope.changeMenu(7);
+        $scope.activeChoices = [];
+        $scope.activeQuestionIndex = -1;
+
+        // Start choosing
+        // Mode: Roll
+        // Mode: Choose
+        if ($scope.options.choiceMode == 0 || $scope.options.choiceMode == 1)
+        {
+            $scope.playQuestion();
+        }
+        // Mode: Instant
+        else if ($scope.options.choiceMode == 2)
+        {
+            $scope.questions.forEach(function (question) {
+                $scope.addActiveChoice(question.decide());
+            });
+            $scope.playEnd();
+        }
+    };
+    $scope.playEnd = function () {
+        $scope.activeGame.decide($scope.activeCharacter, $scope.activeChoices);
+        $scope.changeMenu(7); // Show Character
+    };
+    $scope.playQuestion = function () {
+        $scope.activeQuestionIndex++;
+        if ($scope.activeQuestionIndex == $scope.questions.length) {
+            $scope.playEnd();
+            return;
+        }
+        $scope.activeQuestion = $scope.questions[$scope.activeQuestionIndex];
+
+        if ($scope.options.choiceMode == 0)
+        {
+            $scope.rolling = true;
+            $scope.rollChoice = {};
+            $scope.rollQuestion(0);
+        }
+    };
+    $scope.rollQuestion = function (count) {
+        count++;
+        if (count > 10)
+        {
+            $scope.rolling = false;
+            $scope.addActiveChoice($scope.rollChoice);
+            return;
+        }
+
+        $timeout(function () { $scope.rollQuestion(count); }, 500);
+        $scope.rollChoice = $scope.activeQuestion.decide();
     };
 
     // Menu logic
@@ -265,7 +367,7 @@ app.controller('characterCtrl', function ($scope, $filter, Question, Trait, Choi
     }
 
     // Session information
-    // Purpose: Save all game objects (Questions, Traits, Choices, Attributes) to local session.
+    // Purpose: Save all game objects to local session.
     $scope.Save = function () {
 
         // Build list of objects to save
@@ -301,6 +403,7 @@ app.controller('characterCtrl', function ($scope, $filter, Question, Trait, Choi
     }
     // Purpose: Build array of objects to be saved
     // Returns: Array of objects
+    // Questions, Traits, Choices, Attributes, Options
     $scope.BuildToSave = function(){
         var toSave = [];
 
@@ -322,6 +425,8 @@ app.controller('characterCtrl', function ($scope, $filter, Question, Trait, Choi
                 toSave.push(att);
             });
         });
+        // Options
+        toSave.push($scope.options);
 
         return toSave;
     }
@@ -399,6 +504,9 @@ app.controller('characterCtrl', function ($scope, $filter, Question, Trait, Choi
             case "Attribute":
                 return new Attribute();
                 break;
+            case "Options":
+                return new Options();
+                break;
             default:
                 return {};
         }
@@ -418,10 +526,12 @@ app.controller('characterCtrl', function ($scope, $filter, Question, Trait, Choi
             else if (obj.type == "Trait") {
                 $scope.addTrait(obj);
             }
+            else if (obj.type == "Options")
+            {
+                $scope.options = obj;
+            }
         });
     }
-
-    $scope.testObj = {name:"Hello", data:"World"};
 
     // Only show one menu at a time
     $scope.menuIndex = 0;
