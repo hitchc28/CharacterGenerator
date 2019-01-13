@@ -1,5 +1,5 @@
 ﻿// Module, Controller
-var app = angular.module('characterApp', ["ngStorage"]);
+var app = angular.module('characterApp', ["ngStorage", "ngFileSaver"]);
 
 // Global variable: Unique int identifier for each custom object
 var count = 0;
@@ -220,6 +220,8 @@ app.factory('Options', function (Character, Choice) {
         this.id = count++;
         this.type = "Options";
         this.choiceMode = 0;
+        this.rollSpeed = 0.5;
+        this.rollTimes = 10;
     };
 
     // Public methods
@@ -246,8 +248,9 @@ app.factory('Options', function (Character, Choice) {
     return Options;
 });
 
-app.controller('characterCtrl', function ($scope, $filter, Question, Trait, Choice, Attribute, Character, Game, Options, $window, $localStorage, $timeout)
-{
+app.controller('characterCtrl',
+    ['$scope', '$filter', 'Question', 'Trait', 'Choice', 'Attribute', 'Character', 'Game', 'Options', '$window', '$localStorage', '$timeout', 'FileSaver', 'Blob',
+    function ($scope, $filter, Question, Trait, Choice, Attribute, Character, Game, Options, $window, $localStorage, $timeout, FileSaver, Blob){
 
     // Options
     $scope.options = new Options();
@@ -266,6 +269,17 @@ app.controller('characterCtrl', function ($scope, $filter, Question, Trait, Choi
         var q = new Question();
         $scope.addQuestion(q);
     };
+    $scope.newQuestionFromTrait = function (trait) {
+        var q = new Question();
+        q.name = trait.name + "?";
+        trait.attributes.forEach(function (attribute) {
+            var ch = new Choice();
+            ch.name = attribute.name;
+            ch.addAddAttribute(attribute);
+            q.addChoice(ch);
+        });
+        $scope.addQuestion(q);
+    };
 
     // Traits
     $scope.traits = [];
@@ -282,12 +296,14 @@ app.controller('characterCtrl', function ($scope, $filter, Question, Trait, Choi
         $scope.addTrait(t);
     };
 
+    // Roll settings
+    $scope.rolling = false;
+    $scope.rollChoice = {};
+
     // Gameplay
     $scope.activeCharacter = {};
     $scope.activeGame = {};
     $scope.activeQuestionIndex = 0;
-    $scope.rolling = false;
-    $scope.rollChoice = {};
 
     $scope.activeChoices = [];
     $scope.addActiveChoice = function (choice) {
@@ -339,14 +355,14 @@ app.controller('characterCtrl', function ($scope, $filter, Question, Trait, Choi
     };
     $scope.rollQuestion = function (count) {
         count++;
-        if (count > 10)
+        if (count > $scope.options.rollTimes)
         {
             $scope.rolling = false;
             $scope.addActiveChoice($scope.rollChoice);
             return;
         }
 
-        $timeout(function () { $scope.rollQuestion(count); }, 500);
+        $timeout(function () { $scope.rollQuestion(count); }, $scope.options.rollSpeed * 1000);
         $scope.rollChoice = $scope.activeQuestion.decide();
     };
 
@@ -396,10 +412,20 @@ app.controller('characterCtrl', function ($scope, $filter, Question, Trait, Choi
             toSave[objKey] = copy;
         });
 
-        // Save to local storage
-        //var test = angular.toJson(toSave);
-        //$window.alert(angular.toJson(toSave));
-        $localStorage.Build = angular.toJson(toSave);
+        return angular.toJson(toSave);
+    }
+    // Purpose: Save to local storage
+    $scope.SaveToLocal = function () {
+        var toSave = $scope.Save();
+        $localStorage.Build = toSave;
+    }
+    // Purpose: Save to selected file
+    $scope.SaveToFile = function () {
+        var toSave = $scope.Save();
+        var filename = 'CharacterGenerator.txt';
+
+        var data = new Blob([toSave], { type: 'text/plain;charset=utf-8' });
+        FileSaver.saveAs(data, filename);
     }
     // Purpose: Build array of objects to be saved
     // Returns: Array of objects
@@ -439,15 +465,12 @@ app.controller('characterCtrl', function ($scope, $filter, Question, Trait, Choi
     }
 
     // Purpose: Retrieve game objects from local session.
-    $scope.Get = function () {
-        // Working test
-        //$window.alert($localStorage.Build);
-
+    $scope.Load = function (loadData) {
         // Reset count
         count = 0;
 
         // Get data from local storage
-        var data = angular.fromJson($localStorage.Build);
+        var data = angular.fromJson(loadData);
         var sortedObjects = []; // All objects, using id number as index
 
         // For each object in data, build object using factory
@@ -487,6 +510,20 @@ app.controller('characterCtrl', function ($scope, $filter, Question, Trait, Choi
 
         // Save results in controller
         $scope.AssignLoadedObjects(sortedObjects);
+    }
+    $scope.LoadFromLocal = function () {
+        var loadData = $localStorage.Build;
+        $scope.Load(loadData);
+    };
+    // Purpose: Load from file when file is uploaded
+    $scope.LoadFromFile = function (event) {
+        var input = event.target;
+
+        var reader = new FileReader();
+        reader.onload = function () {
+            $scope.Load(reader.result);
+        };
+        reader.readAsText(input.files[0]);
     }
     // Purpose: Return blank object of certain type based on obj
     // Returns: Default factory object of obj.type type
@@ -544,9 +581,10 @@ app.controller('characterCtrl', function ($scope, $filter, Question, Trait, Choi
         // 5: Show Traits
         // 6: Playing
         // 7: Show Character
+        // 8: Options
         $scope.menuIndex = index;
     };
 
     // Testing
 
-});
+}]);

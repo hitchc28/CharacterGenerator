@@ -10,18 +10,31 @@ div {
 }
 
 table, th, tr, td {
+  margin: auto;
+  margin-bottom: 30px;
   border: 1px solid black;
 }
+
+th, td { 
+    padding: 5px;
+} 
 
 table {
   border-collapse: collapse;
 }
 
-tr:nth-child(even)
-{
-    /*background-color: #f2f2f2;*/
-}
-
 button {
     width: 100%;
+}
+
+.mainMenu {
+    position: fixed;
+    top: 1em;
+    left: 1em;
+}
+
+.menu {
+    position: fixed;
+    top: 3em;
+    left: 1em;
 }
